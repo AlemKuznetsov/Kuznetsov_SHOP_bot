@@ -11,7 +11,7 @@ import os
 # === НАСТРОЙКИ ===
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 DB_NAME = "shop.db"
-ADMIN_IDS = [123456789]  # ← ВСТАВЬ СВОЙ ID ЗДЕСЬ
+ADMIN_IDS = [440138628]  # ← ВСТАВЬ СВОЙ ID ЗДЕСЬ
 
 # === ИНИЦИАЛИЗАЦИЯ ===
 bot = Bot(token=BOT_TOKEN)
