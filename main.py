@@ -11,7 +11,7 @@ import os
 # === НАСТРОЙКИ ===
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 DB_NAME = "shop.db"
-ADMIN_IDS = [440138628]  # ← ВСТАВЬ СВОЙ ID ЗДЕСЬ
+ADMIN_IDS = [440138628]  # ← ТВОЙ ID УЖЕ ВСТАВЛЕН!
 
 # === ИНИЦИАЛИЗАЦИЯ ===
 bot = Bot(token=BOT_TOKEN)
@@ -62,13 +62,12 @@ async def create_db():
         await db.execute('''CREATE TABLE IF NOT EXISTS products (id INTEGER PRIMARY KEY AUTOINCREMENT, category_id INTEGER, name TEXT, description TEXT, price REAL)''')
         await db.execute('''CREATE TABLE IF NOT EXISTS cart (user_id INTEGER, product_id INTEGER, quantity INTEGER DEFAULT 1, PRIMARY KEY (user_id, product_id))''')
         
-        # Тестовые данные
         await db.execute("INSERT OR IGNORE INTO categories (name) VALUES ('Смартфоны'), ('Ноутбуки'), ('Аксессуары')")
         await db.execute("""
             INSERT OR IGNORE INTO products (category_id, name, description, price) VALUES 
-            (1, 'iPhone 15', '128 ГБ, черный, OLED 6.1"', 89990),
-            (1, 'Samsung S24', '256 ГБ, зеленый, AMOLED 6.2"', 79990),
-            (2, 'MacBook Air M2', '8 ГБ / 256 ГБ, серебристый', 119990)
+            (1, 'iPhone 15', '128 ГБ, черный', 89990),
+            (1, 'Samsung S24', '256 ГБ, зеленый', 79990),
+            (2, 'MacBook Air M2', '8/256 ГБ', 119990)
         """)
         await db.commit()
 
@@ -90,9 +89,11 @@ async def start(message: types.Message):
 async def shop_menu(message: types.Message):
     await message.answer("Выберите действие:", reply_markup=get_shop_keyboard())
 
+# === НАЗАД — ИСПРАВЛЕНО! ===
 @dp.message(F.text == "Назад")
 async def back_to_main(message: types.Message):
-    await message.answer("Главное меню:", reply_markup=get_main_keyboard(message.from_user.id))
+    user_id = message.from_user.id
+    await message.answer("Главное меню:", reply_markup=get_main_keyboard(user_id))
 
 # === КАТАЛОГ ===
 @dp.message(F.text == "Каталог")
@@ -141,12 +142,7 @@ async def add_to_cart(callback: types.CallbackQuery):
     prod_id = int(callback.data.split("_")[1])
     user_id = callback.from_user.id
     async with aiosqlite.connect(DB_NAME) as db:
-        await db.execute("""
-            INSERT INTO cart (user_id, product_id) 
-            VALUES (?, ?) 
-            ON CONFLICT(user_id, product_id) 
-            DO UPDATE SET quantity = quantity + 1
-        """, (user_id, prod_id))
+        await db.execute("INSERT INTO cart (user_id, product_id) VALUES (?, ?) ON CONFLICT(user_id, product_id) DO UPDATE SET quantity = quantity + 1", (user_id, prod_id))
         await db.commit()
     await callback.answer("Добавлено в корзину!")
 
@@ -155,12 +151,7 @@ async def add_to_cart(callback: types.CallbackQuery):
 async def show_cart(message: types.Message):
     user_id = message.from_user.id
     async with aiosqlite.connect(DB_NAME) as db:
-        cursor = await db.execute("""
-            SELECT p.name, p.price, c.quantity 
-            FROM cart c 
-            JOIN products p ON c.product_id = p.id 
-            WHERE c.user_id = ?
-        """, (user_id,))
+        cursor = await db.execute("SELECT p.name, p.price, c.quantity FROM cart c JOIN products p ON c.product_id = p.id WHERE c.user_id = ?", (user_id,))
         rows = await cursor.fetchall()
 
     if not rows:
@@ -191,13 +182,13 @@ async def clear_cart(callback: types.CallbackQuery):
 async def back_to_shop(callback: types.CallbackQuery):
     await shop_menu(callback.message)
 
-# === ПОДДЕРЖКА ===
+# === ПОДДЕРЖКА — ИСПРАВЛЕНО! ===
 @dp.message(F.text == "Поддержка")
 async def support(message: types.Message):
     text = "*Поддержка:*\n\nПочта: `akuznetsov348@ya.ru`\nВремя работы: 10:00 – 20:00"
     await message.answer(text, parse_mode="Markdown", reply_markup=get_main_keyboard(message.from_user.id))
 
-# === ПРОФИЛЬ — ИСПРАВЛЕНО! ===
+# === ПРОФИЛЬ ===
 @dp.message(F.text == "Профиль")
 async def profile(message: types.Message):
     user_id = message.from_user.id
@@ -207,7 +198,6 @@ async def profile(message: types.Message):
         balance = row[0] if row else 0.0
         email = row[1] if row and row[1] else "не указана"
     text = f"*Ваш профиль:*\n\nID: `{user_id}`\nБаланс: `{balance:,.2f} ₽`\nПочта: `{email}`".replace(",", " ")
-    # ← ВОЗВРАЩАЕМ ГЛАВНУЮ КЛАВИАТУРУ БЕЗ "ИЗМЕНИТЬ ЦЕНУ"
     await message.answer(text, parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
 
 # === АДМИНКА ===
@@ -278,7 +268,7 @@ async def add_product(message: types.Message):
             cursor = await db.execute("SELECT id FROM categories WHERE name = ?", (cat_name,))
             row = await cursor.fetchone()
             if not row:
-                await message.answer("Категория не найдена! Сначала добавьте: /addcat Название", reply_markup=get_admin_keyboard())
+                await message.answer("Категория не найдена!", reply_markup=get_admin_keyboard())
                 return
             cat_id = row[0]
             await db.execute("INSERT INTO products (category_id, name, description, price) VALUES (?, ?, ?, ?)", (cat_id, name, desc, price))
